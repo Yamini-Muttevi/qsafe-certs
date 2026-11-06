@@ -1,0 +1,5 @@
+liboqs-python==0.16.0.2
+cryptography>=42
+pytest>=8
+streamlit>=1.40
+matplotlib>=3.8
