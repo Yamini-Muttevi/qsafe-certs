@@ -5,8 +5,17 @@ authentic for decades when the algorithms that sign it are broken and replaced?*
 
 A university signs degrees with post-quantum signatures, each certificate can
 carry several signatures from different algorithm generations, and a renewed,
-timestamped evidence chain proves when each certificate existed. Simulated
-quantum key distribution (BB84) plus ML-KEM protects key transfer between offices.
+timestamped evidence chain proves when each certificate existed. Every timestamp
+is signed jointly by several independent authorities, and a verifier needs at least
+*k* of them, so one stolen key or dishonest authority cannot backdate a forgery.
+Simulated quantum key distribution (BB84) plus ML-KEM protects key transfer between offices.
+
+![A degree issued in 2026, checked in 2053 after ECDSA and ML-DSA have both been broken: still genuine, because the evidence chain was renewed in 2040](screenshots/08_verify_2053_after_renewal.png)
+
+*A degree issued in 2026 and checked in 2053, after both ECDSA (2045) and ML-DSA (2052) are treated as broken.
+It is still genuine because the archive was renewed in 2040 with SLH-DSA by three independent authorities.
+Without that renewal, the same certificate is rejected. All 14 recorded scenarios are in
+[`screenshots/`](screenshots/results.md).*
 
 ## What it does
 
@@ -258,3 +267,15 @@ Select-String -Path "C:\Quantum projects\liboqs\build\include\oqs\oqsconfig.h" -
   timestamps in a public ledger, are future work.
 - Authorities are trusted to sign only the current date; nothing in the simulation stops an authority from
   signing any date it is given.
+
+## License
+
+MIT License; see [`LICENSE`](LICENSE).
+
+## How to cite
+
+If you use this code or its results, please cite it using the **Cite this repository** button on the
+GitHub page, which reads [`CITATION.cff`](CITATION.cff).
+
+This is a research prototype. It is not hardened for production and must not be used to protect real
+certificates or keys.

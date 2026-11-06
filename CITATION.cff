@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software or its results, please cite it as below."
+title: "qsafe-certs: quantum-safe, long-term verification of academic certificates"
+abstract: >-
+  Research prototype that keeps digital degree certificates verifiable for decades
+  as signature algorithms are broken. Certificates carry post-quantum signatures
+  (ML-DSA, SLH-DSA); a renewable evidence chain, after RFC 4998, proves when each
+  certificate existed; and every timestamp must be signed by at least k of n
+  independent timestamp authorities. Includes tests, benchmarks, a k-of-n
+  security and availability study, and a Streamlit demo.
+type: software
+authors:
+  - given-names: Yamini Punyavathi
+    family-names: Muttevi
+repository-code: "https://github.com/Yamini-Muttevi/qsafe-certs"
+license: MIT
+version: "0.1"
+keywords:
+  - post-quantum cryptography
+  - ML-DSA
+  - SLH-DSA
+  - evidence records
+  - timestamping
+  - long-term archiving
+  - academic credentials
