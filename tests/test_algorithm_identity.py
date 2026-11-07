@@ -28,25 +28,29 @@ def test_each_name_maps_to_one_algorithm_only():
     assert not any("SPHINCS" in c for c in crypto._PQC_SIG_NAMES["SLH-DSA-SHA2-128s"])
 
 
-@pytest.mark.skipif(not all(crypto.is_available(a) for a in crypto.HASH_BASED_PREFERENCE),
-                    reason="needs working SLH-DSA and SPHINCS+")
-def test_slh_dsa_and_sphincs_do_not_verify_each_other():
-    slh, sphincs = crypto.HASH_BASED_PREFERENCE
-    for signer, verifier in [(slh, sphincs), (sphincs, slh)]:
+PAIRS = [(crypto.SLH_DSA, crypto.SPHINCS), (crypto.SLH_DSA, "SLH-DSA-SHAKE-128s"),
+         ("SLH-DSA-SHAKE-128s", crypto.SPHINCS)]
+
+
+@pytest.mark.parametrize("first,second", PAIRS)
+def test_hash_based_algorithms_do_not_verify_each_other(first, second):
+    if not (crypto.is_available(first) and crypto.is_available(second)):
+        pytest.skip(f"needs working {first} and {second}")
+    for signer, verifier in [(first, second), (second, first)]:
         kp = crypto.generate_keypair(signer)
         sig = crypto.sign(kp, b"message")
         assert crypto.verify(signer, kp.public_key, b"message", sig)
         assert not crypto.verify(verifier, kp.public_key, b"message", sig)
 
 
-def test_broken_implementation_is_not_replaced_by_another_algorithm(monkeypatch):
-    """Simulate the Windows build: every SLH-DSA implementation fails its self-test."""
+def _break(monkeypatch, is_broken):
+    """Make every liboqs implementation whose name matches `is_broken` sign but fail to verify."""
     real = crypto.oqs.Signature
 
-    class BrokenSLH:
+    class Broken:
         def __init__(self, name, *a, **k):
             self._s = real(name, *a, **k)
-            self._broken = "SLH" in name.upper()
+            self._broken = is_broken(name)
         def __getattr__(self, attr):
             return getattr(self._s, attr)
         def __enter__(self):
@@ -56,7 +60,22 @@ def test_broken_implementation_is_not_replaced_by_another_algorithm(monkeypatch)
         def verify(self, *args):
             return False if self._broken else self._s.verify(*args)
 
-    monkeypatch.setattr(crypto.oqs, "Signature", BrokenSLH)
+    monkeypatch.setattr(crypto.oqs, "Signature", Broken)
+
+
+def test_windows_msvc_bug_renews_with_slh_dsa_shake(monkeypatch):
+    """liboqs issue #2516: with MSVC, SLH-DSA SHA-2 variants fail to verify; SHAKE variants work."""
+    if not crypto.is_available("SLH-DSA-SHAKE-128s"):
+        pytest.skip("needs SLH-DSA-SHAKE-128s")
+    crypto._RESOLVED.clear(); crypto._UNAVAILABLE.clear()
+    _break(monkeypatch, lambda n: "SLH" in n.upper() and "SHA2" in n.upper())
+    assert not crypto.is_available("SLH-DSA-SHA2-128s")
+    assert crypto.renewal_algorithm() == ("SLH-DSA-SHAKE-128s", None)
+
+
+def test_broken_implementation_is_not_replaced_by_another_algorithm(monkeypatch):
+    """Every SLH-DSA implementation fails its self-test (SHA-2 and SHAKE)."""
+    _break(monkeypatch, lambda n: "SLH" in n.upper())
     with pytest.raises(crypto.AlgorithmUnavailable, match="No other algorithm is substituted"):
         crypto.generate_keypair("SLH-DSA-SHA2-128s")
     assert not crypto.is_available("SLH-DSA-SHA2-128s")
