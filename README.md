@@ -185,28 +185,24 @@ eavesdropper (25.6% error rate, detected).
 5. **2052** ML-DSA is also broken. Genuine degrees still verify via the renewed evidence chain; the same degree in an archive that was never renewed is rejected.
 6. BB84 detects an eavesdropper (error rate ~22–27% vs 11% threshold); the hybrid channel transfers a key backup.
 
-## Results on two platforms
+## Results: one laptop, two compiler builds
 
-Sizes are fixed by the standards; times depend on the machine and on how liboqs was built.
+Intel Core i9-13900H laptop. **Windows:** Windows 11, liboqs built with Visual Studio 2022, Python 3.12.4, five runs.
+**WSL:** Ubuntu 26.04.1 under WSL 2 on the same laptop (15.4 GB available), liboqs built with GCC 15.2, Python 3.14.4,
+up to seven runs. Both use liboqs 0.15.0 and liboqs-python 0.16.0.2. Values are the range of per-run medians.
 
-| Algorithm | Public key (B) | Signature (B) | Sign (ms), Linux / Windows | Verify (ms), Linux / Windows |
-| --- | --- | --- | --- | --- |
-| RSA-3072 | 422 | 384 | 1.22 / 1.35 | 0.07 / 0.035 |
-| ECDSA-P256 | 33 | 72 | 0.03 / 0.021 | 0.13 / 0.078 |
-| ML-DSA-65 | 1,952 | 3,309 | 0.17 / 0.37 | 0.06 / 0.10 |
-| SLH-DSA-SHA2-128s | 32 | 7,856 | 620 / 554 | 0.68 / 0.55 |
+| Algorithm | Signature (B) | Sign (ms), Windows / WSL | Verify (ms), Windows / WSL |
+| --- | --- | --- | --- |
+| RSA-3072 | 384 | 1.32–1.36 / 1.33–1.46 | 0.035–0.036 / 0.033–0.034 |
+| ECDSA-P256 | 70–72 | 0.020–0.022 / 0.019–0.023 | 0.078–0.083 / 0.076–0.083 |
+| ML-DSA-65 | 3,309 | 0.366–0.381 / 0.081–0.090 | 0.097–0.100 / 0.035–0.042 |
+| SPHINCS+-SHA2-128s-simple | 7,856 | 553–572 / 121–126 | 0.546–0.568 / 0.199–0.208 |
+| SLH-DSA-SHA2-128s (FIPS 205) | 7,856 | fails to verify / 360–387 | — / 0.365–0.399 |
 
-| | Linux | Windows |
-| --- | --- | --- |
-| Machine | Cloud sandbox, Intel Xeon 2.1 GHz, 1 core, 3.9 GB | Laptop, Intel Core i9-13900H, 20 logical cores, 31.6 GB |
-| OS | Ubuntu 24.04 | Windows 11 (10.0.26300) |
-| liboqs build | GCC, AVX2 code paths enabled | Visual Studio 2022, AVX2 code paths disabled |
-| Runs | median of 3 | median of 5 (2026-11-06) |
+Windows results recorded before the algorithm-identity fix are labelled "SLH-DSA" but were measured with SPHINCS+
+(see Findings). Raw outputs: `results/windows/` and `results/wsl/`.
 
-Both use Python 3.12, liboqs 0.15.0 and liboqs-python 0.16.0.2. An earlier Windows run was 1.5–2× slower for
-every algorithm, classical ones included, and was discarded as uncontrolled.
-
-Renewing 1,000,000 certificates: one timestamp signature; Merkle tree built in ~7 s (Linux) and 5.2 s (Windows)
+Renewing 1,000,000 certificates: one timestamp signature; Merkle tree built in 5.2–5.3 s (Windows) and 3.2–3.5 s (WSL)
 in pure Python; proof per certificate = 20 hashes (1,280 bytes).
 
 ### Running the benchmark
@@ -224,24 +220,23 @@ new verifier on every call. Comparing it with **Verify** shows how much of the c
 
 ## Findings so far
 
-- **For ML-DSA, the build toolchain matters more than the hardware.** On a much faster CPU (i9-13900H), classical
-  algorithms ran as fast or faster than on the cloud Xeon, yet ML-DSA ran about 2× slower. The Visual Studio build of
-  liboqs had the AVX2-optimised ML-DSA code disabled (`/* #undef OQS_ENABLE_SIG_ml_dsa_65_avx2 */` in
-  `oqsconfig.h`); the GCC build on Linux had it enabled.
-- The slowdown is in the library, not this project's code: verifying through the wrapper (0.100 ms) and with a
-  reused library object (0.094 ms) cost almost the same.
-- **SLH-DSA showed no platform penalty:** 554–563 ms per signature across three Windows runs vs 620 ms on Linux.
-- **Signing:** ML-DSA is faster than RSA-3072 on both platforms. ML-DSA signatures are about 9× larger (3,309 vs 384 bytes).
-- SLH-DSA is slow to sign (about 0.55–0.6 s), so it suits rare archive renewals where one signature covers millions of records.
-- **An algorithm name must mean one algorithm.** On the Windows build, real SLH-DSA (FIPS 205) signed but failed to
-  verify, and the code silently fell back to SPHINCS+, its pre-standard version, under the same name. The two are not
-  interchangeable: neither verifies the other's signatures, so evidence renewed on Windows would not have verified on
-  Linux. The crypto layer now treats them as separate algorithms, never substitutes one for the other, and renews with
-  SLH-DSA where it works and SPHINCS+ (under its own name) where it does not. `diag.py` shows which is used.
-- **Cross-platform correctness (earlier note):** on the Windows build, one SLH-DSA implementation signed but failed to verify.
-  The crypto layer now self-tests every implementation and falls back to a working one (`diag.py` shows which).
-- **Control test conditions.** An uncontrolled Windows run was 1.5–2× slower across the board. Run on mains power,
-  in a high-performance power mode, with other programs closed, and publish medians.
+- **The compiler build, not the hardware, sets post-quantum performance.** On the same laptop, the GCC build ran ML-DSA
+  about 4.3× faster to sign and 2.6× faster to verify, and SPHINCS+ about 4.6× and 2.7× faster, than the Visual Studio
+  build, which disabled their AVX2-optimised code. RSA and ECDSA, from a separate library, were unchanged (a control).
+  The overhead is in the library, not this project: wrapper and reused-object verification cost almost the same.
+- **An algorithm name must mean one algorithm.** In the Visual Studio build, real SLH-DSA (FIPS 205) signed but never
+  verified, and the code's self-test silently fell back to SPHINCS+, its pre-standard version, under the same name. They
+  are not interchangeable (neither verifies the other's signatures), so evidence renewed on Windows would not have
+  verified on Linux. The crypto layer now treats them as separate algorithms, never substitutes one for the other, and
+  raises an explicit error when an algorithm has no working implementation. `diag.py` shows which is used.
+- **The standardised scheme is currently the slower one:** liboqs 0.15 has no AVX2 option for FIPS 205 SLH-DSA, so under
+  GCC it signs about 3× slower than SPHINCS+ (360–387 vs 121–126 ms).
+- **Renewal validates before it extends**, matching the condition under which Geihs, Demirel and Buchmann (2015) prove
+  ERS secure.
+- **One trusted timestamp authority is a single point of failure;** 2 of 3 blocks a backdated forgery by one compromised
+  authority, and 3-of-5 cuts forgery and renewal-failure risk about sixfold compared with 2-of-3.
+- ML-DSA signs faster than RSA-3072, but its signatures are about 9× larger (3,309 vs 384 bytes).
+- **Control test conditions.** An uncontrolled Windows run was 1.5–2× slower across the board. Publish medians.
 
 To check which optimised code paths your own liboqs build enabled:
 
