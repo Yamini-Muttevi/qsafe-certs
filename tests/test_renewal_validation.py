@@ -3,11 +3,14 @@ from datetime import date
 
 import pytest
 
+from qsafe import crypto
 from qsafe.certificate import Issuer, KeyDirectory
 from qsafe.evidence import Archive, TimestampAuthority
 from qsafe.policy import TrustPolicy
 from qsafe.registry import Registry
 from qsafe.verifier import verify_certificate
+
+HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
 
 NAMES = ["A", "B", "C"]
 
@@ -17,7 +20,7 @@ def world():
     d, p = KeyDirectory(), TrustPolicy(tsa_threshold=2)
     uni = Issuer("Uni", ["ECDSA-P256", "ML-DSA-65"], d)
     old = [TimestampAuthority(n, "ML-DSA-65", d) for n in NAMES]
-    new = [TimestampAuthority(n, "SLH-DSA-SHA2-128s", d) for n in NAMES]
+    new = [TimestampAuthority(n, HB, d) for n in NAMES]
     certs = [uni.issue(f"C{i}", {"name": f"Student {i}"}, date(2026, 6, 1)) for i in range(3)]
     a = Archive()
     a.add_batch(certs, old, date(2026, 6, 1))
@@ -65,5 +68,5 @@ def test_registry_reports_refused_records():
     reg = Registry()
     reg.issue("A", "B.Tech CSE", "8.00", 2026, date(2026, 6, 1))
     reg.set_broken("ML-DSA-65", date(2035, 1, 1))
-    assert reg.renew("SLH-DSA-SHA2-128s", "SHA3-512", date(2040, 1, 15)) == 0
+    assert reg.renew(HB, "SHA3-512", date(2040, 1, 15)) == 0
     assert len(reg.last_refused) == 1

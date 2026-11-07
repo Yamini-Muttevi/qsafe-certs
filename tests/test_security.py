@@ -11,6 +11,8 @@ from qsafe.policy import TrustPolicy
 from qsafe.qkd import QBER_THRESHOLD, run_bb84
 from qsafe.verifier import verify_certificate
 
+HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
+
 D2026, D2040 = date(2026, 6, 1), date(2040, 1, 1)
 
 
@@ -19,7 +21,7 @@ def world():
     directory, policy = KeyDirectory(), TrustPolicy()
     uni = Issuer("Test University", ["ECDSA-P256", "ML-DSA-65"], directory)
     tsa_a = TimestampAuthority("TSA-A", "ML-DSA-65", directory)
-    tsa_b = TimestampAuthority("TSA-B", "SLH-DSA-SHA2-128s", directory)
+    tsa_b = TimestampAuthority("TSA-B", HB, directory)
     certs = [uni.issue(f"C{i}", {"name": f"Student {i}", "cgpa": "8.0"}, D2026) for i in range(5)]
     archive = Archive()
     archive.add_batch(certs, tsa_a, D2026)
@@ -32,7 +34,7 @@ def verify(world, cert, today, record="auto"):
     return verify_certificate(cert, rec, directory, policy, today).genuine
 
 
-@pytest.mark.parametrize("alg", crypto.supported_signature_algorithms())
+@pytest.mark.parametrize("alg", crypto.available_signature_algorithms())
 def test_sign_verify_each_algorithm(alg):
     kp = crypto.generate_keypair(alg)
     sig = crypto.sign(kp, b"hello")

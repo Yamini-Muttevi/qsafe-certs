@@ -4,8 +4,11 @@ from datetime import date
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from qsafe import crypto
 from qsafe.certificate import Certificate
 from qsafe.registry import Registry
+
+HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
 
 
 # ------------------------------------------------------------- registry ---
@@ -14,7 +17,7 @@ def test_registry_full_lifecycle():
     cert = reg.issue("A. Kumar", "B.Tech CSE", "8.70", 2026, date(2026, 6, 1))
     assert reg.verify(cert, date(2026, 7, 1))[0].genuine
 
-    reg.renew("SLH-DSA-SHA2-128s", "SHA3-512", date(2040, 1, 15))
+    reg.renew(HB, "SHA3-512", date(2040, 1, 15))
     reg.set_broken("ECDSA-P256", date(2045, 3, 1))
     reg.set_broken("ML-DSA-65", date(2052, 1, 1))
     assert reg.verify(cert, date(2052, 6, 1))[0].genuine
@@ -127,9 +130,9 @@ def test_app_two_colluding_authorities_can_backdate(app):
 def test_registry_renewal_by_one_authority_fails_threshold_after_break():
     reg = Registry()
     cert = reg.issue("A", "B.Tech CSE", "8.00", 2026, date(2026, 6, 1))
-    reg.renew("SLH-DSA-SHA2-128s", "SHA3-512", date(2040, 1, 15), ["National Timestamp Service"])
+    reg.renew(HB, "SHA3-512", date(2040, 1, 15), ["National Timestamp Service"])
     reg.set_broken("ECDSA-P256", date(2045, 3, 1))
     reg.set_broken("ML-DSA-65", date(2052, 1, 1))
     assert not reg.verify(cert, date(2053, 1, 1))[0].genuine
     with pytest.raises(ValueError):
-        reg.renew("SLH-DSA-SHA2-128s", "SHA3-512", date(2041, 1, 1), [])
+        reg.renew(HB, "SHA3-512", date(2041, 1, 1), [])

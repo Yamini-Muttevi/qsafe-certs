@@ -10,6 +10,8 @@ from qsafe.evidence import Archive, EvidenceLink, EvidenceRecord, TimestampAutho
 from qsafe.policy import TrustPolicy
 from qsafe.verifier import verify_certificate
 
+HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
+
 D2026, D2040, D2045 = date(2026, 6, 1), date(2040, 1, 1), date(2045, 6, 1)
 NAMES = ["National TSA", "Academic Consortium TSA", "Independent Auditor TSA"]
 
@@ -87,7 +89,7 @@ def test_two_of_three_survives_after_algorithm_break_with_renewal(world):
     cert = uni.issue("C1", {"name": "Student"}, D2026)
     a = Archive()
     a.add_batch([cert], tsas, D2026)
-    a.renew([TimestampAuthority(n, "SLH-DSA-SHA2-128s", d) for n in NAMES], D2040, "SHA3-512")
+    a.renew([TimestampAuthority(n, HB, d) for n in NAMES], D2040, "SHA3-512")
     p.mark_broken("ECDSA-P256", date(2045, 1, 1))
     p.mark_broken("ML-DSA-65", date(2050, 1, 1))
     assert verify_certificate(cert, a.records["C1"], d, p, date(2051, 1, 1)).genuine
@@ -98,7 +100,7 @@ def test_renewal_by_too_few_authorities_is_rejected(world):
     cert = uni.issue("C1", {"name": "Student"}, D2026)
     a = Archive()
     a.add_batch([cert], tsas, D2026)
-    a.renew([TimestampAuthority(NAMES[0], "SLH-DSA-SHA2-128s", d)], D2040, "SHA3-512")  # only one renewed
+    a.renew([TimestampAuthority(NAMES[0], HB, d)], D2040, "SHA3-512")  # only one renewed
     p.mark_broken("ECDSA-P256", date(2045, 1, 1))
     p.mark_broken("ML-DSA-65", date(2050, 1, 1))
     assert not verify_certificate(cert, a.records["C1"], d, p, date(2051, 1, 1)).genuine

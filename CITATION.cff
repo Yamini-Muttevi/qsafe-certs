@@ -10,7 +10,7 @@ abstract: >-
   security and availability study, and a Streamlit demo.
 type: software
 authors:
-  - given-names: Yamini Punyavathi
+  - given-names: Yamini
     family-names: Muttevi
 repository-code: "https://github.com/Yamini-Muttevi/qsafe-certs"
 license: MIT

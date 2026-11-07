@@ -37,7 +37,7 @@ from qsafe.verifier import verify_certificate  # noqa: E402
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 os.makedirs(OUT, exist_ok=True)
 
-ALGS = ["ML-DSA-65", "SLH-DSA-SHA2-128s"]
+ALGS = ["ML-DSA-65", crypto.hash_based_algorithm()]
 NS = [1, 2, 3, 5]
 CONFIGS = [(1, 1), (1, 3), (2, 3), (3, 3), (2, 5), (3, 5), (4, 5)]
 ARCHIVE_SIZE = 1_000_000          # certificates covered by one timestamp
@@ -140,7 +140,7 @@ def part_c():
             policy = TrustPolicy(tsa_threshold=k)
             uni = Issuer("Uni", ["ECDSA-P256", "ML-DSA-65"], directory)
             old = [TimestampAuthority(f"TSA-{i}", "ML-DSA-65", directory) for i in range(n)]
-            new = [TimestampAuthority(f"TSA-{i}", "SLH-DSA-SHA2-128s", directory) for i in range(a)]
+            new = [TimestampAuthority(f"TSA-{i}", ALGS[1], directory) for i in range(a)]
             cert = uni.issue("C1", {"name": "Student"}, D2026)
             archive = Archive()
             archive.add_batch([cert], old, D2026)

@@ -138,11 +138,17 @@ def main() -> None:
         print(f"{k:<14}{v}")
     print()
 
-    algorithms = [("RSA-3072", 50), ("ECDSA-P256", 200), ("ML-DSA-65", 200), ("SLH-DSA-SHA2-128s", 3)]
+    algorithms = [("RSA-3072", 50), ("ECDSA-P256", 200), ("ML-DSA-65", 200)]
+    for hb in crypto.HASH_BASED_PREFERENCE:  # measure SLH-DSA and SPHINCS+ separately; never mix them up
+        if crypto.is_available(hb):
+            algorithms.append((hb, 3))
+        else:
+            print(f"  skipping {hb}: no working implementation in this liboqs build")
+            lines.append(f"{hb}: skipped, no working implementation in this liboqs build.\n")
     header = ("| Algorithm | Public key (B) | Signature (B) | Sign (ms) | Verify (ms) | Verify, reused object (ms) |\n"
               "| --- | --- | --- | --- | --- | --- |")
     lines.append(header)
-    print(f"{'Algorithm':<20}{'Public key (B)':>15}{'Signature (B)':>15}{'Sign (ms)':>11}"
+    print(f"{'Algorithm':<27}{'Public key (B)':>15}{'Signature (B)':>15}{'Sign (ms)':>11}"
           f"{'Verify (ms)':>13}{'Verify, reused (ms)':>21}")
     for alg, iters in algorithms:
         runs = []
@@ -151,7 +157,7 @@ def main() -> None:
             runs.append(measure_once(alg, iters))
         med = {k: statistics.median(r[k] for r in runs) for k in ("sign", "verify", "verify_reused")}
         pk, sig = runs[0]["pk"], runs[0]["sig"]
-        print(f"{alg:<20}{pk:>15}{sig:>15}{med['sign']:>11.3f}{med['verify']:>13.3f}{med['verify_reused']:>21.3f}")
+        print(f"{alg:<27}{pk:>15}{sig:>15}{med['sign']:>11.3f}{med['verify']:>13.3f}{med['verify_reused']:>21.3f}")
         lines.append(f"| {alg} | {pk:,} | {sig:,} | {med['sign']:.3f} | {med['verify']:.3f} | "
                      f"{med['verify_reused']:.3f} |")
 
@@ -167,7 +173,7 @@ def main() -> None:
     print(renew)
     lines += ["", renew, ""]
 
-    out = args.out or f"results_{platform.system().lower()}_{datetime.now():%Y%m%d_%H%M}.md"
+    out = args.out or f"results_{platform.system().lower()}_{datetime.now():%Y%m%d_%H%M%S}.md"
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
     print(f"\nSaved to {out}")

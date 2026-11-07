@@ -9,7 +9,7 @@ import streamlit as st
 
 from qsafe.certificate import Certificate
 from qsafe.qkd import QBER_THRESHOLD, decrypt, encrypt, establish_hybrid_channel, run_bb84
-from qsafe.registry import HASH_ALGORITHMS, TSA_ALGORITHMS, TSA_NAMES, UNIVERSITY, Registry
+from qsafe.registry import HASH_ALGORITHMS, HASH_BASED, TSA_ALGORITHMS, TSA_NAMES, UNIVERSITY, Registry
 
 st.set_page_config(page_title="qsafe-certs", page_icon="🎓", layout="centered")
 
@@ -44,7 +44,7 @@ def get_registry() -> Registry:
 
 reg = get_registry()
 
-BREAK_DEFAULTS = {"ECDSA-P256": date(2045, 3, 1), "ML-DSA-65": date(2052, 1, 1), "SLH-DSA-SHA2-128s": date(2065, 1, 1)}
+BREAK_DEFAULTS = {"ECDSA-P256": date(2045, 3, 1), "ML-DSA-65": date(2052, 1, 1), HASH_BASED: date(2065, 1, 1)}
 
 # Streamlit reruns this script top to bottom on every interaction, and the Verify tab is
 # drawn before Simulate the future. So every change to the world (algorithm breaks,

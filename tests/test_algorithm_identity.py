@@ -1,0 +1,69 @@
+"""An algorithm name must always mean the same algorithm, on every machine.
+
+SLH-DSA (FIPS 205) and SPHINCS+ are different algorithms: neither verifies the other's
+signatures. A Windows build where SLH-DSA failed its self-test used to fall back to SPHINCS+
+under the SLH-DSA name, so evidence renewed there would not verify on Linux.
+"""
+import pytest
+
+from qsafe import crypto
+
+
+@pytest.fixture(autouse=True)
+def fresh_cache():
+    saved = dict(crypto._RESOLVED), dict(crypto._UNAVAILABLE)
+    crypto._RESOLVED.clear()
+    crypto._UNAVAILABLE.clear()
+    yield
+    crypto._RESOLVED.clear(); crypto._RESOLVED.update(saved[0])
+    crypto._UNAVAILABLE.clear(); crypto._UNAVAILABLE.update(saved[1])
+
+
+def test_each_name_maps_to_one_algorithm_only():
+    seen = {}
+    for name, candidates in crypto._PQC_SIG_NAMES.items():
+        for c in candidates:
+            assert c not in seen, f"{c} listed under both {seen.get(c)} and {name}"
+            seen[c] = name
+    assert not any("SPHINCS" in c for c in crypto._PQC_SIG_NAMES["SLH-DSA-SHA2-128s"])
+
+
+@pytest.mark.skipif(not all(crypto.is_available(a) for a in crypto.HASH_BASED_PREFERENCE),
+                    reason="needs working SLH-DSA and SPHINCS+")
+def test_slh_dsa_and_sphincs_do_not_verify_each_other():
+    slh, sphincs = crypto.HASH_BASED_PREFERENCE
+    for signer, verifier in [(slh, sphincs), (sphincs, slh)]:
+        kp = crypto.generate_keypair(signer)
+        sig = crypto.sign(kp, b"message")
+        assert crypto.verify(signer, kp.public_key, b"message", sig)
+        assert not crypto.verify(verifier, kp.public_key, b"message", sig)
+
+
+def test_broken_implementation_is_not_replaced_by_another_algorithm(monkeypatch):
+    """Simulate the Windows build: every SLH-DSA implementation fails its self-test."""
+    real = crypto.oqs.Signature
+
+    class BrokenSLH:
+        def __init__(self, name, *a, **k):
+            self._s = real(name, *a, **k)
+            self._broken = "SLH" in name.upper()
+        def __getattr__(self, attr):
+            return getattr(self._s, attr)
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            self._s.free()
+        def verify(self, *args):
+            return False if self._broken else self._s.verify(*args)
+
+    monkeypatch.setattr(crypto.oqs, "Signature", BrokenSLH)
+    with pytest.raises(crypto.AlgorithmUnavailable, match="No other algorithm is substituted"):
+        crypto.generate_keypair("SLH-DSA-SHA2-128s")
+    assert not crypto.is_available("SLH-DSA-SHA2-128s")
+    # The renewal algorithm falls back honestly, under SPHINCS+'s own name.
+    assert crypto.hash_based_algorithm() == "SPHINCS+-SHA2-128s-simple"
+
+
+def test_unknown_algorithm_is_rejected():
+    with pytest.raises(ValueError):
+        crypto.generate_keypair("NOT-AN-ALGORITHM")

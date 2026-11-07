@@ -34,7 +34,7 @@ Without that renewal, the same certificate is rejected. All 14 recorded scenario
 | `benchmark.py` | Signature cost vs RSA/ECDSA; renewal cost for 1M certificates | |
 | `experiments/threshold_study.py` | k-of-n timestamp authority study: cost, security and availability; writes `experiments/results/` | |
 | `record_screenshots.py` | Drives the web app in a headless browser through 14 scenarios and saves screenshots | |
-| `tests/` | 41 tests: security properties, multiple timestamp authorities, validation at renewal, service layer, and web app flows | |
+| `tests/` | 46 tests: security properties, multiple timestamp authorities, validation at renewal, algorithm identity, service layer, and web app flows | |
 
 ## Installation
 
@@ -110,7 +110,7 @@ Each time you open a new terminal, activate the environment first
 ```bash
 python diag.py          # which post-quantum implementations work here
 python demo.py          # 2026 -> 2052 scenario
-python -m pytest -q     # expect: 41 passed
+python -m pytest -q     # expect: 46 passed
 python benchmark.py     # signature and renewal costs
 streamlit run app.py    # web app, opens at http://localhost:8501
 ```
@@ -217,7 +217,7 @@ python benchmark.py --runs 3 --renew-size 100000  # quicker
 ```
 
 It prints the machine's details (OS, CPU, cores, RAM, Python and liboqs versions), reports the median of
-each measurement, and saves everything to `results_<os>_<date>.md`. Close heavy programs while it runs.
+each measurement, and saves everything to `results_<os>_<date>_<time>.md` (to the second, so quick repeat runs never overwrite each other). Close heavy programs while it runs.
 
 The **Verify, reused object** column times the library alone, without the project wrapper creating a
 new verifier on every call. Comparing it with **Verify** shows how much of the cost is wrapper overhead.
@@ -233,7 +233,12 @@ new verifier on every call. Comparing it with **Verify** shows how much of the c
 - **SLH-DSA showed no platform penalty:** 554–563 ms per signature across three Windows runs vs 620 ms on Linux.
 - **Signing:** ML-DSA is faster than RSA-3072 on both platforms. ML-DSA signatures are about 9× larger (3,309 vs 384 bytes).
 - SLH-DSA is slow to sign (about 0.55–0.6 s), so it suits rare archive renewals where one signature covers millions of records.
-- **Cross-platform correctness:** on the Windows build, one SLH-DSA implementation signed but failed to verify.
+- **An algorithm name must mean one algorithm.** On the Windows build, real SLH-DSA (FIPS 205) signed but failed to
+  verify, and the code silently fell back to SPHINCS+, its pre-standard version, under the same name. The two are not
+  interchangeable: neither verifies the other's signatures, so evidence renewed on Windows would not have verified on
+  Linux. The crypto layer now treats them as separate algorithms, never substitutes one for the other, and renews with
+  SLH-DSA where it works and SPHINCS+ (under its own name) where it does not. `diag.py` shows which is used.
+- **Cross-platform correctness (earlier note):** on the Windows build, one SLH-DSA implementation signed but failed to verify.
   The crypto layer now self-tests every implementation and falls back to a working one (`diag.py` shows which).
 - **Control test conditions.** An uncontrolled Windows run was 1.5–2× slower across the board. Run on mains power,
   in a high-performance power mode, with other programs closed, and publish medians.

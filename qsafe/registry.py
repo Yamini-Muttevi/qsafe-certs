@@ -16,7 +16,10 @@ from .verifier import Result, verify_certificate
 
 UNIVERSITY = "Deccan Institute of Technology"
 TSA_NAMES = ["National Timestamp Service", "Academic Consortium TSA", "Independent Auditor TSA"]
-TSA_ALGORITHMS = ["ML-DSA-65", "SLH-DSA-SHA2-128s"]
+# The hash-based renewal algorithm is whichever genuinely works here: SLH-DSA (FIPS 205) if
+# available, otherwise SPHINCS+ under its own name (see crypto.hash_based_algorithm).
+HASH_BASED = crypto.hash_based_algorithm()
+TSA_ALGORITHMS = ["ML-DSA-65", HASH_BASED]
 HASH_ALGORITHMS = ["SHA3-256", "SHA3-512"]
 
 

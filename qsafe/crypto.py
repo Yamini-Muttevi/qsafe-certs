@@ -15,32 +15,47 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-# Friendly name -> candidate liboqs identifiers (names differ across versions).
+# Friendly name -> alternative liboqs NAMES FOR THE SAME ALGORITHM, never a different one.
+# SLH-DSA (FIPS 205) and SPHINCS+ (its pre-standard version) are NOT interchangeable:
+# pure SLH-DSA prefixes every message with a context, so neither verifies the other's
+# signatures. They are therefore separate algorithms with separate names, and the code
+# never substitutes one for the other.
 _PQC_SIG_NAMES = {
     "ML-DSA-65": ["ML-DSA-65"],
-    "SLH-DSA-SHA2-128s": [
-        "SLH_DSA_PURE_SHA2_128S",
-        "SLH-DSA-SHA2-128s",
-        "SPHINCS+-SHA2-128s-simple",
-    ],
+    "SLH-DSA-SHA2-128s": ["SLH_DSA_PURE_SHA2_128S", "SLH-DSA-SHA2-128s"],      # FIPS 205
+    "SPHINCS+-SHA2-128s-simple": ["SPHINCS+-SHA2-128s-simple"],               # pre-standard
 }
+# Hash-based algorithm used for renewals, in order of preference.
+HASH_BASED_PREFERENCE = ["SLH-DSA-SHA2-128s", "SPHINCS+-SHA2-128s-simple"]
 CLASSICAL_SIGS = {"ECDSA-P256"}
 
 
 _RESOLVED: dict[str, str] = {}
+_UNAVAILABLE: dict[str, str] = {}
+
+
+class AlgorithmUnavailable(RuntimeError):
+    """No working implementation of exactly this algorithm exists in this liboqs build."""
 
 
 def _resolve_oqs_sig(name: str) -> str:
-    """Pick the first liboqs implementation that passes a real sign/verify self-test.
+    """Pick the first liboqs implementation OF THIS SAME ALGORITHM that passes a sign/verify self-test.
 
-    Some implementations misbehave on some platforms (e.g. a Windows build where
-    one SLH-DSA variant signs but never verifies), so we test before trusting.
+    Some implementations misbehave on some platforms (e.g. a Windows build where SLH-DSA
+    signs but never verifies). If none works, raise AlgorithmUnavailable: never fall back
+    to a different algorithm under the same name.
     """
     if name in _RESOLVED:
         return _RESOLVED[name]
+    if name in _UNAVAILABLE:
+        raise AlgorithmUnavailable(_UNAVAILABLE[name])
+    if name not in _PQC_SIG_NAMES:
+        raise ValueError(f"Unknown algorithm {name}")
     enabled = set(oqs.get_enabled_sig_mechanisms())
+    tried = []
     for candidate in _PQC_SIG_NAMES[name]:
         if candidate not in enabled:
+            tried.append(f"{candidate} (not in this build)")
             continue
         try:
             s = oqs.Signature(candidate)
@@ -50,9 +65,35 @@ def _resolve_oqs_sig(name: str) -> str:
                 if v.verify(b"self-test", sig, pk):
                     _RESOLVED[name] = candidate
                     return candidate
-        except Exception:
-            pass
-    raise ValueError(f"No working liboqs implementation for {name}")
+            tried.append(f"{candidate} (signs but fails to verify)")
+        except Exception as e:  # noqa: BLE001
+            tried.append(f"{candidate} (error: {e})")
+    _UNAVAILABLE[name] = (f"No working implementation of {name} in this liboqs build; tried: "
+                          f"{'; '.join(tried)}. No other algorithm is substituted.")
+    raise AlgorithmUnavailable(_UNAVAILABLE[name])
+
+
+def is_available(name: str) -> bool:
+    if name in CLASSICAL_SIGS:
+        return True
+    try:
+        _resolve_oqs_sig(name)
+        return True
+    except AlgorithmUnavailable:
+        return False
+
+
+def available_signature_algorithms() -> list[str]:
+    """Algorithms with a working implementation on this machine."""
+    return [a for a in supported_signature_algorithms() if is_available(a)]
+
+
+def hash_based_algorithm() -> str:
+    """The hash-based algorithm to renew with: SLH-DSA if it works here, else SPHINCS+ (under its own name)."""
+    for name in HASH_BASED_PREFERENCE:
+        if is_available(name):
+            return name
+    raise AlgorithmUnavailable("No working hash-based signature (SLH-DSA or SPHINCS+) in this liboqs build.")
 
 
 def resolved_implementations() -> dict[str, str]:
