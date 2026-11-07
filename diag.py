@@ -25,7 +25,10 @@ for name in ["ML-DSA-65", "SLH_DSA_PURE_SHA2_128S", "SLH-DSA-SHA2-128s", "SPHINC
 from qsafe import crypto  # noqa: E402
 
 print("\nProject algorithms available here:", ", ".join(crypto.available_signature_algorithms()))
-print("Hash-based renewal algorithm used here:", crypto.hash_based_algorithm())
+alg, warning = crypto.renewal_algorithm()
+print("Renewal algorithm used here:", alg)
+if warning:
+    print("WARNING:", warning)
 if all(crypto.is_available(a) for a in crypto.HASH_BASED_PREFERENCE):
     a, b = crypto.HASH_BASED_PREFERENCE
     kp = crypto.generate_keypair(a)

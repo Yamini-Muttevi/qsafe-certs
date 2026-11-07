@@ -37,7 +37,7 @@ from qsafe.verifier import verify_certificate  # noqa: E402
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 os.makedirs(OUT, exist_ok=True)
 
-ALGS = ["ML-DSA-65", crypto.hash_based_algorithm()]
+ALGS = ["ML-DSA-65", crypto.renewal_algorithm()[0]]
 NS = [1, 2, 3, 5]
 CONFIGS = [(1, 1), (1, 3), (2, 3), (3, 3), (2, 5), (3, 5), (4, 5)]
 ARCHIVE_SIZE = 1_000_000          # certificates covered by one timestamp

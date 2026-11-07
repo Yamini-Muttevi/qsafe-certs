@@ -24,6 +24,7 @@ _PQC_SIG_NAMES = {
     "ML-DSA-65": ["ML-DSA-65"],
     "SLH-DSA-SHA2-128s": ["SLH_DSA_PURE_SHA2_128S", "SLH-DSA-SHA2-128s"],      # FIPS 205
     "SPHINCS+-SHA2-128s-simple": ["SPHINCS+-SHA2-128s-simple"],               # pre-standard
+    "ML-DSA-87": ["ML-DSA-87"],                                              # last-resort renewal
 }
 # Hash-based algorithm used for renewals, in order of preference.
 HASH_BASED_PREFERENCE = ["SLH-DSA-SHA2-128s", "SPHINCS+-SHA2-128s-simple"]
@@ -86,6 +87,27 @@ def is_available(name: str) -> bool:
 def available_signature_algorithms() -> list[str]:
     """Algorithms with a working implementation on this machine."""
     return [a for a in supported_signature_algorithms() if is_available(a)]
+
+
+RENEWAL_FALLBACK = "ML-DSA-87"
+
+
+def renewal_algorithm() -> tuple[str, str | None]:
+    """The algorithm to renew evidence with, and a warning if it is a fallback.
+
+    Prefers a hash-based signature (SLH-DSA, else SPHINCS+), which rests on different
+    assumptions from lattice-based ML-DSA. If neither works in this build (e.g. liboqs
+    0.16.0 on Windows/MSVC, where SLH-DSA fails to verify and SPHINCS+ was removed),
+    falls back to ML-DSA-87 under its own name and says so: renewals still work, but
+    without the diversity of a second family of assumptions.
+    """
+    try:
+        return hash_based_algorithm(), None
+    except AlgorithmUnavailable:
+        if not is_available(RENEWAL_FALLBACK):
+            raise AlgorithmUnavailable("No algorithm available for renewals in this liboqs build.")
+        return RENEWAL_FALLBACK, ("No working hash-based signature in this liboqs build; renewing with "
+                                  f"{RENEWAL_FALLBACK} instead, which loses diversity from lattice assumptions.")
 
 
 def hash_based_algorithm() -> str:

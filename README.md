@@ -34,7 +34,7 @@ Without that renewal, the same certificate is rejected. All 14 recorded scenario
 | `benchmark.py` | Signature cost vs RSA/ECDSA; renewal cost for 1M certificates | |
 | `experiments/threshold_study.py` | k-of-n timestamp authority study: cost, security and availability; writes `experiments/results/` | |
 | `record_screenshots.py` | Drives the web app in a headless browser through 14 scenarios and saves screenshots | |
-| `tests/` | 46 tests: security properties, multiple timestamp authorities, validation at renewal, algorithm identity, service layer, and web app flows | |
+| `tests/` | 48 tests: security properties, multiple timestamp authorities, validation at renewal, algorithm identity, service layer, and web app flows | |
 
 ## Installation
 
@@ -110,7 +110,7 @@ Each time you open a new terminal, activate the environment first
 ```bash
 python diag.py          # which post-quantum implementations work here
 python demo.py          # 2026 -> 2052 scenario
-python -m pytest -q     # expect: 46 passed
+python -m pytest -q     # expect: 48 passed
 python benchmark.py     # signature and renewal costs
 streamlit run app.py    # web app, opens at http://localhost:8501
 ```
@@ -229,6 +229,9 @@ new verifier on every call. Comparing it with **Verify** shows how much of the c
   are not interchangeable (neither verifies the other's signatures), so evidence renewed on Windows would not have
   verified on Linux. The crypto layer now treats them as separate algorithms, never substitutes one for the other, and
   raises an explicit error when an algorithm has no working implementation. `diag.py` shows which is used.
+- **Still broken in liboqs 0.16.0 on Windows:** pure SLH-DSA still fails to verify in the Visual Studio build, and
+  0.16.0 removed SPHINCS+, leaving no hash-based signature. Renewals then fall back to ML-DSA-87, labelled as such,
+  with a warning that this loses diversity from lattice assumptions.
 - **The standardised scheme is currently the slower one:** liboqs 0.15 has no AVX2 option for FIPS 205 SLH-DSA, so under
   GCC it signs about 3× slower than SPHINCS+ (360–387 vs 121–126 ms).
 - **Renewal validates before it extends**, matching the condition under which Geihs, Demirel and Buchmann (2015) prove

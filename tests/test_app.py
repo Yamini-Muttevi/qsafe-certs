@@ -8,7 +8,7 @@ from qsafe import crypto
 from qsafe.certificate import Certificate
 from qsafe.registry import Registry
 
-HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
+HB = crypto.renewal_algorithm()[0]  # SLH-DSA, else SPHINCS+, else ML-DSA-87
 
 
 # ------------------------------------------------------------- registry ---

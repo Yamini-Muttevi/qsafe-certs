@@ -18,7 +18,7 @@ UNIVERSITY = "Deccan Institute of Technology"
 TSA_NAMES = ["National Timestamp Service", "Academic Consortium TSA", "Independent Auditor TSA"]
 # The hash-based renewal algorithm is whichever genuinely works here: SLH-DSA (FIPS 205) if
 # available, otherwise SPHINCS+ under its own name (see crypto.hash_based_algorithm).
-HASH_BASED = crypto.hash_based_algorithm()
+HASH_BASED, RENEWAL_WARNING = crypto.renewal_algorithm()
 TSA_ALGORITHMS = ["ML-DSA-65", HASH_BASED]
 HASH_ALGORITHMS = ["SHA3-256", "SHA3-512"]
 

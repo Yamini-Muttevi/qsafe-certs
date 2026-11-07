@@ -10,7 +10,7 @@ from qsafe.policy import TrustPolicy
 from qsafe.registry import Registry
 from qsafe.verifier import verify_certificate
 
-HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
+HB = crypto.renewal_algorithm()[0]  # SLH-DSA, else SPHINCS+, else ML-DSA-87
 
 NAMES = ["A", "B", "C"]
 

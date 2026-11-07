@@ -11,7 +11,7 @@ from qsafe.policy import TrustPolicy
 from qsafe.qkd import QBER_THRESHOLD, run_bb84
 from qsafe.verifier import verify_certificate
 
-HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+
+HB = crypto.renewal_algorithm()[0]  # SLH-DSA, else SPHINCS+, else ML-DSA-87
 
 D2026, D2040 = date(2026, 6, 1), date(2040, 1, 1)
 

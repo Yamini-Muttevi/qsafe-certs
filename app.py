@@ -9,7 +9,7 @@ import streamlit as st
 
 from qsafe.certificate import Certificate
 from qsafe.qkd import QBER_THRESHOLD, decrypt, encrypt, establish_hybrid_channel, run_bb84
-from qsafe.registry import HASH_ALGORITHMS, HASH_BASED, TSA_ALGORITHMS, TSA_NAMES, UNIVERSITY, Registry
+from qsafe.registry import HASH_ALGORITHMS, HASH_BASED, RENEWAL_WARNING, TSA_ALGORITHMS, TSA_NAMES, UNIVERSITY, Registry
 
 st.set_page_config(page_title="qsafe-certs", page_icon="🎓", layout="centered")
 
@@ -126,6 +126,8 @@ def show_result(cert: Certificate, as_of: date, record=None) -> None:
 
 
 st.title("Quantum-safe certificates")
+if RENEWAL_WARNING:
+    st.warning(RENEWAL_WARNING)
 st.write(f"Issue degrees from {UNIVERSITY}, verify them, and see whether they survive future quantum attacks.")
 
 tab_issue, tab_verify, tab_future, tab_keys = st.tabs(["Issue", "Verify", "Simulate the future", "Key transfer"])

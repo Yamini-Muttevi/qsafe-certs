@@ -60,10 +60,27 @@ def test_broken_implementation_is_not_replaced_by_another_algorithm(monkeypatch)
     with pytest.raises(crypto.AlgorithmUnavailable, match="No other algorithm is substituted"):
         crypto.generate_keypair("SLH-DSA-SHA2-128s")
     assert not crypto.is_available("SLH-DSA-SHA2-128s")
-    # The renewal algorithm falls back honestly, under SPHINCS+'s own name.
-    assert crypto.hash_based_algorithm() == "SPHINCS+-SHA2-128s-simple"
+    # The renewal algorithm falls back honestly, under its own name: SPHINCS+ where it exists
+    # (liboqs 0.15), otherwise ML-DSA-87 with a warning (liboqs 0.16 removed SPHINCS+).
+    alg, warning = crypto.renewal_algorithm()
+    if crypto.is_available("SPHINCS+-SHA2-128s-simple"):
+        assert alg == "SPHINCS+-SHA2-128s-simple" and warning is None
+    else:
+        assert alg == "ML-DSA-87" and warning
 
 
 def test_unknown_algorithm_is_rejected():
     with pytest.raises(ValueError):
         crypto.generate_keypair("NOT-AN-ALGORITHM")
+
+
+def test_renewal_falls_back_to_ml_dsa_87_when_no_hash_based_algorithm(monkeypatch):
+    """Simulate liboqs 0.16.0 on Windows: SLH-DSA fails to verify and SPHINCS+ is absent."""
+    real_enabled = crypto.oqs.get_enabled_sig_mechanisms
+    monkeypatch.setattr(crypto.oqs, "get_enabled_sig_mechanisms",
+                        lambda: [m for m in real_enabled() if "SLH" not in m.upper() and "SPHINCS" not in m])
+    with pytest.raises(crypto.AlgorithmUnavailable):
+        crypto.hash_based_algorithm()
+    alg, warning = crypto.renewal_algorithm()
+    assert alg == "ML-DSA-87"
+    assert warning and "loses diversity" in warning

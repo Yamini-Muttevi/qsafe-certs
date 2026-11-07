@@ -56,7 +56,9 @@ check("2026 verify tampered certificate (CGPA 8.7 -> 9.9)",
       verify_certificate(tampered, archive.records[genuine.certificate_id], directory, policy, date(2026, 7, 1)))
 
 # ------------------------------------------------------------------ 2040 ---
-HB = crypto.hash_based_algorithm()  # SLH-DSA if it works here, else SPHINCS+ under its own name
+HB, warning = crypto.renewal_algorithm()  # SLH-DSA, else SPHINCS+, else ML-DSA-87; never mislabelled
+if warning:
+    print("WARNING:", warning)
 section(f"2040: archive renewed with a hash-based signature ({HB}) and SHA3-512")
 tsa_2040 = [TimestampAuthority(n, HB, directory) for n in TSA_NAMES]
 n = archive.renew(tsa_2040, date(2040, 1, 15), hash_alg="SHA3-512", directory=directory, policy=policy)
