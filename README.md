@@ -234,6 +234,8 @@ new verifier on every call. Comparing it with **Verify** shows how much of the c
   work, and 0.16.0 removed SPHINCS+. Renewals therefore use **SLH-DSA-SHAKE-128s**, a separate, clearly named
   algorithm, on such builds. Preference order: SLH-DSA SHA-2, SLH-DSA SHAKE, SPHINCS+, then ML-DSA-87 as a last
   resort with a warning. No algorithm is ever substituted for another under the same name.
+  The maintainers have scheduled an update of the upstream SLH-DSA code that may fix this for liboqs 0.17.0 (#2686).
+
 - **The standardised scheme is currently the slower one:** liboqs 0.15 has no AVX2 option for FIPS 205 SLH-DSA, so under
   GCC it signs about 3× slower than SPHINCS+ (360–387 vs 121–126 ms).
 - **Renewal validates before it extends**, matching the condition under which Geihs, Demirel and Buchmann (2015) prove
